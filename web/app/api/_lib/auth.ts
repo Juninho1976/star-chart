@@ -1,17 +1,20 @@
 import { cookies } from "next/headers";
 
-export function getAccessToken(): string | null {
-  return cookies().get("access_token")?.value ?? null;
+export async function getAccessToken(): Promise<string | null> {
+  const jar = await cookies();
+  return jar.get("access_token")?.value ?? null;
 }
 
-export function setAccessToken(token: string) {
-  cookies().set("access_token", token, {
+export async function setAccessToken(token: string) {
+  const jar = await cookies();
+  jar.set("access_token", token, {
     httpOnly: true,
     sameSite: "lax",
-    path: "/"
+    path: "/",
   });
 }
 
-export function clearAccessToken() {
-  cookies().set("access_token", "", { httpOnly: true, path: "/", maxAge: 0 });
+export async function clearAccessToken() {
+  const jar = await cookies();
+  jar.set("access_token", "", { httpOnly: true, path: "/", maxAge: 0 });
 }

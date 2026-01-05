@@ -14,6 +14,6 @@ export async function POST(req: Request) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) return NextResponse.json(data, { status: res.status });
 
-  setAccessToken(data.accessToken);
+  await setAccessToken(data.accessToken);
   return NextResponse.json({ ok: true });
 }

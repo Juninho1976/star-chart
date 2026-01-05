@@ -3,7 +3,7 @@ import { getAccessToken } from "../_lib/auth";
 
 export async function GET() {
   const apiBase = process.env.API_BASE_URL!;
-  const token = getAccessToken();
+  const token = await getAccessToken();
   if (!token) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
 
   const res = await fetch(`${apiBase}/api/v1/children`, {
@@ -17,7 +17,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const apiBase = process.env.API_BASE_URL!;
-  const token = getAccessToken();
+  const token = await getAccessToken();
   if (!token) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
 
   const body = await req.json();

@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 
 export default async function DashboardPage() {
-  const cookieHeader = cookies().toString();
+  const jar = await cookies();
+  const cookieHeader = jar.toString();
 
   const familyRes = await fetch("http://localhost:3000/api/family", {
     cache: "no-store",

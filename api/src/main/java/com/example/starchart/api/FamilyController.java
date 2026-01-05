@@ -10,8 +10,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/family")
@@ -30,8 +30,17 @@ public class FamilyController {
   @PreAuthorize("hasRole('PARENT') or hasRole('SYSTEM_ADMIN')")
   @PostMapping
   public ResponseEntity<?> createFamily(@AuthenticationPrincipal JwtPrincipal principal,
-                                       @RequestBody CreateFamilyReq req) {
-    var user = userRepo.findById(principal.userId()).orElseThrow();
+                                        @RequestBody CreateFamilyReq req) {
+    if (principal == null) {
+      return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+    }
+
+    var userOpt = userRepo.findById(principal.userId());
+    if (userOpt.isEmpty()) {
+      return ResponseEntity.status(401).body(Map.of("error", "User not found"));
+    }
+
+    var user = userOpt.get();
 
     if (user.getFamilyAccountId() != null) {
       return ResponseEntity.badRequest().body(Map.of("error", "Family already exists for this user"));
@@ -44,15 +53,48 @@ public class FamilyController {
     user.setFamilyAccountId(fam.getId());
     userRepo.save(user);
 
-    return ResponseEntity.ok(Map.of("familyId", fam.getId(), "name", fam.getName()));
+    // Avoid Map.of with nulls (defensive)
+    Map<String, Object> resp = new LinkedHashMap<>();
+    resp.put("familyId", fam.getId().toString());
+    resp.put("name", fam.getName() == null ? "" : fam.getName());
+
+    return ResponseEntity.ok(resp);
   }
 
   @GetMapping
   public ResponseEntity<?> getMyFamily(@AuthenticationPrincipal JwtPrincipal principal) {
-    var user = userRepo.findById(principal.userId()).orElseThrow();
-    UUID famId = user.getFamilyAccountId();
-    if (famId == null) return ResponseEntity.ok(Map.of("family", null));
-    var fam = familyRepo.findById(famId).orElse(null);
-    return ResponseEntity.ok(Map.of("family", fam == null ? null : Map.of("id", fam.getId(), "name", fam.getName())));
+    if (principal == null) {
+      return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+    }
+
+    var userOpt = userRepo.findById(principal.userId());
+    if (userOpt.isEmpty()) {
+      return ResponseEntity.status(401).body(Map.of("error", "User not found"));
+    }
+
+    var user = userOpt.get();
+    var familyId = user.getFamilyAccountId();
+
+    Map<String, Object> resp = new java.util.LinkedHashMap<>();
+
+    if (familyId == null) {
+      resp.put("family", null); // Map.of would NPE here
+      return ResponseEntity.ok(resp);
+    }
+
+    var familyOpt = familyRepo.findById(familyId);
+    if (familyOpt.isEmpty()) {
+      resp.put("family", null); // still no 500
+      return ResponseEntity.ok(resp);
+    }
+
+    var family = familyOpt.get();
+
+    Map<String, Object> familyJson = new java.util.LinkedHashMap<>();
+    familyJson.put("id", family.getId().toString());
+    familyJson.put("name", family.getName() == null ? "" : family.getName());
+
+    resp.put("family", familyJson);
+    return ResponseEntity.ok(resp);
   }
 }

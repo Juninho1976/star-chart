@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,8 +32,17 @@ public class ChildrenController {
   @PreAuthorize("hasRole('PARENT')")
   @PostMapping
   public ResponseEntity<?> createChild(@AuthenticationPrincipal JwtPrincipal principal,
-                                      @RequestBody CreateChildReq req) {
-    var user = userRepo.findById(principal.userId()).orElseThrow();
+                                       @RequestBody CreateChildReq req) {
+    if (principal == null) {
+      return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+    }
+
+    var userOpt = userRepo.findById(principal.userId());
+    if (userOpt.isEmpty()) {
+      return ResponseEntity.status(401).body(Map.of("error", "User not found"));
+    }
+
+    var user = userOpt.get();
     UUID famId = user.getFamilyAccountId();
     if (famId == null) {
       return ResponseEntity.badRequest().body(Map.of("error", "Create a family first"));
@@ -43,18 +53,36 @@ public class ChildrenController {
     c.setName(req.name());
     childRepo.save(c);
 
-    return ResponseEntity.ok(Map.of("id", c.getId(), "name", c.getName()));
+    Map<String, Object> childJson = new LinkedHashMap<>();
+    childJson.put("id", c.getId().toString());
+    childJson.put("name", c.getName() == null ? "" : c.getName());
+
+    return ResponseEntity.ok(childJson);
   }
 
   @GetMapping
   public ResponseEntity<?> listChildren(@AuthenticationPrincipal JwtPrincipal principal) {
-    var user = userRepo.findById(principal.userId()).orElseThrow();
-    UUID famId = user.getFamilyAccountId();
-    if (famId == null) return ResponseEntity.ok(Map.of("children", List.of()));
+    if (principal == null) {
+      return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+    }
 
-    var children = childRepo.findAllByFamilyAccountId(famId)
-        .stream().map(c -> Map.of("id", c.getId(), "name", c.getName()))
-        .toList();
+    var userOpt = userRepo.findById(principal.userId());
+    if (userOpt.isEmpty()) {
+      return ResponseEntity.status(401).body(Map.of("error", "User not found"));
+    }
+
+    var user = userOpt.get();
+    UUID famId = user.getFamilyAccountId();
+    if (famId == null) {
+      return ResponseEntity.ok(Map.of("children", List.of()));
+    }
+
+    var children = childRepo.findAllByFamilyAccountId(famId).stream().map(c -> {
+      Map<String, Object> m = new LinkedHashMap<>();
+      m.put("id", c.getId().toString());
+      m.put("name", c.getName() == null ? "" : c.getName());
+      return m;
+    }).toList();
 
     return ResponseEntity.ok(Map.of("children", children));
   }
