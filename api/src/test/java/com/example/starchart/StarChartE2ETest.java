@@ -19,7 +19,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
+import java.util.UUID;
 
 
 @Testcontainers
@@ -53,39 +53,37 @@ class StarChartE2ETest {
   private String viewerToken;
   private String childId;
 
-  @BeforeEach
-  void setup() throws Exception {
-    // register parent + login
-    register("parent1@test.com", "Passw0rd!");
-    parentToken = login("parent1@test.com", "Passw0rd!");
+@BeforeEach
+void setup() throws Exception {
+  String parentEmail = "parent1-" + UUID.randomUUID() + "@test.com";
+  String viewerEmail = "viewer1-" + UUID.randomUUID() + "@test.com";
 
-    // create family
-    mvc.perform(post("/api/v1/family")
-        .header("Authorization", "Bearer " + parentToken)
-        .contentType(MediaType.APPLICATION_JSON)
-        .content("{\"name\":\"Kotecha Family\"}"))
-      .andExpect(status().isOk());
+  register(parentEmail, "Passw0rd!");
+  parentToken = login(parentEmail, "Passw0rd!");
 
-    // create child
-    var childRes = mvc.perform(post("/api/v1/children")
-        .header("Authorization", "Bearer " + parentToken)
-        .contentType(MediaType.APPLICATION_JSON)
-        .content("{\"name\":\"Arya\"}"))
-      .andExpect(status().isOk())
-      .andReturn().getResponse().getContentAsString();
+  mvc.perform(post("/api/v1/family")
+      .header("Authorization", "Bearer " + parentToken)
+      .contentType(MediaType.APPLICATION_JSON)
+      .content("{\"name\":\"Kotecha Family\"}"))
+    .andExpect(status().isOk());
 
-    childId = om.readTree(childRes).get("id").asText();
-    assertThat(childId).isNotBlank();
+  String childRes = mvc.perform(post("/api/v1/children")
+      .header("Authorization", "Bearer " + parentToken)
+      .contentType(MediaType.APPLICATION_JSON)
+      .content("{\"name\":\"Arya\"}"))
+    .andExpect(status().isOk())
+    .andReturn().getResponse().getContentAsString();
 
-    // create viewer + login
-    mvc.perform(post("/api/v1/viewers")
-        .header("Authorization", "Bearer " + parentToken)
-        .contentType(MediaType.APPLICATION_JSON)
-        .content("{\"email\":\"viewer1@test.com\",\"password\":\"Passw0rd!\"}"))
-      .andExpect(status().isOk());
+  childId = om.readTree(childRes).get("id").asText();
 
-    viewerToken = login("viewer1@test.com", "Passw0rd!");
-  }
+  mvc.perform(post("/api/v1/viewers")
+      .header("Authorization", "Bearer " + parentToken)
+      .contentType(MediaType.APPLICATION_JSON)
+      .content("{\"email\":\"" + viewerEmail + "\",\"password\":\"Passw0rd!\"}"))
+    .andExpect(status().isOk());
+
+  viewerToken = login(viewerEmail, "Passw0rd!");
+}
 
   @Test
   void viewer_can_read_stars_but_cannot_write() throws Exception {
@@ -111,6 +109,39 @@ class StarChartE2ETest {
       .andExpect(status().isForbidden());
   }
 
+    @Test
+    void parent_cannot_access_other_family_child() throws Exception {
+    // ---- create Parent B + Family B + Child B ----
+    register("parent2@test.com", "Passw0rd!");
+    String parent2Token = login("parent2@test.com", "Passw0rd!");
+
+    mvc.perform(post("/api/v1/family")
+        .header("Authorization", "Bearer " + parent2Token)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("{\"name\":\"Other Family\"}"))
+        .andExpect(status().isOk());
+
+    String childRes = mvc.perform(post("/api/v1/children")
+        .header("Authorization", "Bearer " + parent2Token)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("{\"name\":\"OtherKid\"}"))
+        .andExpect(status().isOk())
+        .andReturn().getResponse().getContentAsString();
+
+    String otherChildId = om.readTree(childRes).get("id").asText();
+    assertThat(otherChildId).isNotBlank();
+
+    // ---- Parent A (parentToken) must NOT be able to read/write stars for Child B ----
+    mvc.perform(get("/api/v1/children/" + otherChildId + "/stars")
+        .header("Authorization", "Bearer " + parentToken))
+        .andExpect(status().isForbidden());
+
+    mvc.perform(post("/api/v1/children/" + otherChildId + "/stars")
+        .header("Authorization", "Bearer " + parentToken)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("{\"delta\":1,\"reason\":\"Should fail\"}"))
+        .andExpect(status().isForbidden());
+    }
   // ---------- helpers ----------
 
   private void register(String email, String password) throws Exception {
@@ -125,7 +156,7 @@ class StarChartE2ETest {
   }
 
   private String login(String email, String password) throws Exception {
-    var res = mvc.perform(post("/api/v1/auth/login")
+    String res = mvc.perform(post("/api/v1/auth/login")
         .contentType(MediaType.APPLICATION_JSON)
         .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
       .andExpect(status().isOk())
