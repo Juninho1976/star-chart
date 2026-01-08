@@ -27,7 +27,7 @@ jobs:
           TESTCONTAINERS_HOST_OVERRIDE: ""
           # Usually fine to keep Ryuk enabled on GitHub runners
           TESTCONTAINERS_RYUK_DISABLED: "false"
-        run: mvn -q test
+        run: mvn test
 
       # Optional but useful: upload surefire reports if tests fail
       - name: Upload test reports
