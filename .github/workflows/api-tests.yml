@@ -1,0 +1,38 @@
+name: API Tests
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Run tests
+        working-directory: api
+        env:
+          # Not needed on Linux CI; Docker Desktop quirk only
+          TESTCONTAINERS_HOST_OVERRIDE: ""
+          # Usually fine to keep Ryuk enabled on GitHub runners
+          TESTCONTAINERS_RYUK_DISABLED: "false"
+        run: mvn -q test
+
+      # Optional but useful: upload surefire reports if tests fail
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: api/target/surefire-reports/**
