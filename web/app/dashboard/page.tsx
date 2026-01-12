@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { CreateFamilyForm, AddChildForm } from "./Forms";
+import Rewards from "./Rewards";
 
 type Child = { id: string; name: string };
 
@@ -124,6 +125,8 @@ export default async function DashboardPage() {
             })}
           </div>
         )}
+
+        <Rewards />
       </section>
     </main>
   );

@@ -21,3 +21,22 @@ export async function GET(req: Request) {
   const data = await res.json().catch(() => ({}));
   return NextResponse.json(data, { status: res.status });
 }
+
+import { getAccessToken } from "../_lib/auth";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  const apiBase = process.env.API_BASE_URL!;
+  const token = await getAccessToken();
+  if (!token) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+
+  const body = await req.json();
+  const res = await fetch(`${apiBase}/api/v1/rewards`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  return NextResponse.json(data, { status: res.status });
+}
