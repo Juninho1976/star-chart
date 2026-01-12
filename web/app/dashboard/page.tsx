@@ -47,6 +47,8 @@ export default async function DashboardPage() {
           </p>
         </div>
 
+        <Link href="/viewers">Manage viewers</Link>
+        
         <form action="/api/auth/logout" method="post">
           <button type="submit">Logout</button>
         </form>
