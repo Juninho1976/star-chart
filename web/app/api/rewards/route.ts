@@ -1,6 +1,3 @@
-import { NextResponse } from "next/server";
-import { getAccessToken } from "../_lib/auth";
-
 export async function GET(req: Request) {
   const apiBase = process.env.API_BASE_URL!;
   const token = await getAccessToken();
